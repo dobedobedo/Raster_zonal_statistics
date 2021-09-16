@@ -16,11 +16,11 @@ import numpy as np
 from osgeo import ogr, osr, gdal
 import pandas as pd
 
-AOI_filetype = [('Shapefile', ['*.shp'])]
+AOI_filetype = [('Shapefile', ['*.shp']), ('Geopackage', ['*.gpkg']), ('GeoJSON', ['*.geojson', '*.json'])]
 Raster_filetype = '*.tif'
 Out_filetypes=[('Microsoft Excel',['*.xls','*.xlsx'])]
 
-def Create_Masked_Image(lyr, Image):
+def Create_Masked_Image(lyr, total_FIDs, Image):
     # Open vector and raster files
     InputFile = gdal.Open(Image)
             
@@ -39,10 +39,9 @@ def Create_Masked_Image(lyr, Image):
     coordTrans = osr.CoordinateTransformation(sourceSR,targetSR)
     
     Image_set = list()
-    featList = range(lyr.GetFeatureCount())
-    FIDs = list()
+
     # Loop through features
-    for FID in featList:
+    for FID in total_FIDs:
         feat = lyr.GetFeature(FID)
         geom = feat.GetGeometryRef()
         try:
@@ -100,26 +99,31 @@ def Create_Masked_Image(lyr, Image):
         
     # Create mask
         bandmask = target_ds.GetRasterBand(1)
-        datamask = bandmask.ReadAsArray(0, 0, xcount, ycount).astype(np.float)
+        datamask = bandmask.ReadAsArray(0, 0, xcount, ycount).astype(float)
         
     # Read raster as numpy array
         zoneraster = list()
         try:
             for _idx in range(channels):
                 band = InputFile.GetRasterBand(_idx+1)
-                #ndv = band.GetNoDataValue()
-                ndv = -10000
-                image = band.ReadAsArray(xoff, yoff, xcount, ycount).astype(np.float)
+                ndv = band.GetNoDataValue()
+                image = band.ReadAsArray(xoff, yoff, xcount, ycount).astype(float)
                 image_ndv = np.ma.masked_values(image, ndv)
+                
+                # If the feature is outside the raster extent, skip it
                 if image_ndv[~image_ndv.mask].shape[0] == 0:
                     raise AttributeError
                 zonal_data = np.ma.masked_array(image_ndv,  np.logical_not(datamask))
+                
+                # If the whole feature is smaller than a pixel size, use the pixel value
                 if zonal_data[~zonal_data.mask].shape[0] == 0:
-                    raise AttributeError
+                    if geom.Area() < abs(pixelWidth*pixelHeight):
+                        zonal_data = image_ndv
+                    else:
+                        raise AttributeError
     # Mask zone of raster
                 zoneraster.append(zonal_data)
             Image_set.append(zoneraster)
-            FIDs.append(FID)
         
         except AttributeError:
             continue
@@ -128,7 +132,7 @@ def Create_Masked_Image(lyr, Image):
     InputFile = None
     target_ds = None
     
-    return Image_set, FIDs
+    return Image_set
 
 def RasterStats(Image_set, FIDs):
     stats = ['count', 'min', 'max', 'mean', 'median', 'std', 'LQ', 'UQ']
@@ -206,18 +210,23 @@ if __name__ == '__main__':
     featList = range(lyr.GetFeatureCount())
     total_FIDs = list()
     for FID in featList:
-        total_FIDs.append(FID)
+        total_FIDs.append(lyr.GetNextFeature().GetFID())
+        
+    lyr.ResetReading()
     
     # Loop for images
     for Image in Images:
         Image_Name = os.path.split(Image)[1]
         Image_Name, Image_Ext = os.path.splitext(Image_Name)
-        masked_image_set, FIDs = Create_Masked_Image(lyr, Image)
-        Filename = os.path.join(ImagePath, Image_Name)
-        Filename = '_'.join([Filename, AOI_name])
-        Save_Excel_Image(masked_image_set, FIDs, '.'.join([Filename, 'xlsx']))
-        Image_Stat = RasterStats(masked_image_set, FIDs)
-        Stat_sheet[Image_Name] = Image_Stat
+        masked_image_set = Create_Masked_Image(lyr, total_FIDs, Image)
+
+        # Only process the images that at least one feature is inside the image scene
+        if len(masked_image_set) > 0:
+            Filename = os.path.join(ImagePath, Image_Name)
+            Filename = '_'.join([Filename, AOI_name])
+            Save_Excel_Image(masked_image_set, total_FIDs, '.'.join([Filename, 'xlsx']))
+            Image_Stat = RasterStats(masked_image_set, total_FIDs)
+            Stat_sheet[Image_Name] = Image_Stat
     
     # Close shapefile
     lyr = None
@@ -230,5 +239,3 @@ if __name__ == '__main__':
                                 defaultextension='.xlsx')
     
     Save_Excel_Stats(Stat_sheet, total_FIDs, OutFile)
-    
-    
