@@ -69,17 +69,27 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
     
     # Open usable data mask raster if there is any
     if len(udm) > 0:
+        udm_config = udm[1]
         udm_File = gdal.Open(udm[0])
-        udm_channels = udm_File.RasterCount
-        udm_channels_selected = CheckBox(list(map(lambda x: f'Band {str(x+1)}', range(udm_channels))), 
-                                         'Which udm bands to use?')
-        udm_criterion = list()
-        for _udm_channel in udm_channels_selected:
-            udm_criterion.append(UserInputBox(
-                f'{_udm_channel} mask value', 
-                f'Please enter usable value for {_udm_channel}\nTips: Type >, <, >=, or <= to set threshold (e.g. >= 1)', 
-                allow_none=False, isnum=True))
-        udm_channels_selected = list(map(lambda x: int(x.split(' ')[1]), udm_channels_selected))
+        if len(udm_config) > 0:
+            udm_channels_selected = list()
+            udm_criterion = list()
+            for _channel, _criteria in udm_config.items():
+                udm_channels_selected.append(_channel)
+                udm_criterion.append(_criteria)
+        else:
+            udm_channels = udm_File.RasterCount
+            udm_channels_selected = CheckBox(list(map(lambda x: f'Band {str(x+1)}', range(udm_channels))), 
+                                             'Which udm bands to use?')
+            udm_criterion = list()
+            for _udm_channel in udm_channels_selected:
+                udm_criterion.append(UserInputBox(
+                    f'{_udm_channel} mask value', 
+                    f'Please enter usable value for {_udm_channel}\nTips: Type >, <, >=, or <= to set threshold (e.g. >= 1)', 
+                    allow_none=False, isnum=True))
+            udm_channels_selected = list(map(lambda x: int(x.split(' ')[1]), udm_channels_selected))
+            for _idx, _channel in enumerate(udm_channels_selected):
+                udm_config[_channel] = udm_criterion[_idx]
             
     # Get raster georeference info
     GeoTransform = InputFile.GetGeoTransform()
@@ -197,7 +207,7 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
                     
                 udm_zoneraster.append(udm_zonal_data)
                 
-            # Create the and logical udm mask
+            # Create the udm mask
             for _i, udm_criteria in enumerate(udm_criterion):
                 udm_cur = udm_zoneraster[_i]
                 udm_value, udm_cond = udm_criteria
@@ -260,8 +270,12 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
     # Close raster file
     InputFile = None
     target_ds = None
+    udm_File = None
     
-    return Image_set
+    if len(udm) > 0:
+        return Image_set, udm_config
+    else:
+        return Image_set
 
 def RasterStats(Image_set, FIDs):
     stats = ['count', 'min', 'max', 'mean', 'median', 'std', 'LQ', 'UQ']
@@ -584,6 +598,7 @@ if __name__ == '__main__':
     lyr.ResetReading()
     
     # Loop for images
+    udm_config = dict()
     for Image in Images:
         Image_Name = os.path.split(Image)[1]
         Image_Name, Image_Ext = os.path.splitext(Image_Name)
@@ -610,7 +625,7 @@ if __name__ == '__main__':
             else:
                 udm = udms[udm_index[0]]
             
-            masked_image_set = Create_Masked_Image(lyr, total_FIDs, Image, udm)
+            masked_image_set, udm_config = Create_Masked_Image(lyr, total_FIDs, Image, udm, udm_config)
                 
         else:
             masked_image_set = Create_Masked_Image(lyr, total_FIDs, Image)
