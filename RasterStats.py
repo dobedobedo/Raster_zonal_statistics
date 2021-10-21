@@ -232,6 +232,9 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
         except NameError:
             pass
         
+        except AttributeError:
+            continue
+        
     # Read raster as numpy array
         zoneraster = list()
         try:
@@ -387,16 +390,36 @@ def UserInputBox(_property, text, allow_none=True, isnum=False):
                 _input = self.getvar('input').strip()
                 self.setvar(name='cond', value='=')
                 if not _input.isnumeric():
-                    for _cond in ['>=', '<=', '>', '<']:
-                        _new_input = _input.lstrip(_cond).strip()
-                        if _new_input.isnumeric():
-                            break
-                    if not _new_input.isnumeric():
-                        ErrorBox('Warning!', 'Input contains unacceptable characters!')
-                    else:
-                        self.setvar(name='input', value=_new_input)
-                        self.setvar(name='cond', value=_cond)
+                    # Test if the input is floating number
+                    try:
+                        float(_input)
                         self.quit()
+                    except ValueError:
+                        # Check the conditional expression
+                        for _cond in ['>=', '<=', '>', '<']:
+                            _new_input = _input.lstrip(_cond).strip()
+                            if _new_input.isnumeric():
+                                break
+                            else:
+                                # Test if the input is floating number
+                                try:
+                                    float(_new_input)
+                                    break
+                                except ValueError:
+                                    continue
+                        if not _new_input.isnumeric():
+                            # Test if the input is floating number
+                            try:
+                                float(_new_input)
+                                self.setvar(name='input', value=_new_input)
+                                self.setvar(name='cond', value=_cond)
+                                self.quit()
+                            except ValueError:
+                                ErrorBox('Warning!', 'Input contains unacceptable characters!')
+                        else:
+                            self.setvar(name='input', value=_new_input)
+                            self.setvar(name='cond', value=_cond)
+                            self.quit()
                 else:
                     self.quit()
                     
