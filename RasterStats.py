@@ -123,7 +123,7 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
     except NameError:
         pass
     
-    Image_set = list()
+    Image_set = dict()
 
     # Loop through features
     for FID in total_FIDs:
@@ -143,6 +143,10 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
         yoff = int((yOrigin - ymax)/pixelWidth)
         xcount = int((xmax - xmin)/pixelWidth)+1
         ycount = int((ymax - ymin)/pixelWidth)+1
+        
+    # Skip the feature if the extent is outside the image extent
+        if xoff < 0 or yoff <0:
+            continue
         
     # Specify offset and rows and columns of udm to read if there is any
         try:
@@ -265,7 +269,7 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
                         raise AttributeError
     # Mask zone of raster
                 zoneraster.append(zonal_data)
-            Image_set.append(zoneraster)
+            Image_set[FID] = zoneraster
         
         except AttributeError:
             continue
@@ -280,11 +284,12 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
     else:
         return Image_set
 
-def RasterStats(Image_set, FIDs):
+def RasterStats(Image_set):
     stats = ['count', 'min', 'max', 'mean', 'median', 'std', 'LQ', 'UQ']
     stat_sheets = list()
     indice = list()
-    for index, feature in enumerate(Image_set):
+    for FID in Image_set.keys():
+        feature = Image_set[FID]
         stat_sheet = list()
         header = list()
         for idx, band in enumerate(feature):
@@ -301,22 +306,22 @@ def RasterStats(Image_set, FIDs):
             header.append(list(map(''.join([prefix, '{}']).format, stats)))
         header = [col for sublist in header for col in sublist]
         stat_sheets.append([stat for sublist in stat_sheet for stat in sublist])
-        indice.append(FIDs[index])
+        indice.append(FID)
     stat_sheet = np.stack(stat_sheets)
     stat_sheet = pd.DataFrame(stat_sheet, columns=header, index=indice)
     return stat_sheet
 
-def Save_Excel_Image(features, FIDs, OutFile):
+def Save_Excel_Image(features, OutFile):
     OutputFile = pd.ExcelWriter(OutFile)
-    for index, feature in enumerate(features):
-        Masked_image = feature
+    for FID in features.keys():
+        Masked_image = features[FID]
         Masked_image_1d = list()
         headers = list()
         for _idx, band in enumerate(Masked_image):
             Masked_image_1d.append(band[~band.mask].reshape(-1))
             headers.append('band{}'.format(_idx+1))
         Array = pd.DataFrame(Masked_image_1d).T
-        Array.to_excel(OutputFile, sheet_name=str(FIDs[index]), header=headers, index=False)
+        Array.to_excel(OutputFile, sheet_name=str(FID), header=headers, index=False)
     OutputFile.save()
     OutputFile.close()
 
@@ -657,8 +662,8 @@ if __name__ == '__main__':
         if len(masked_image_set) > 0:
             Filename = os.path.join(ImagePath, Image_Name)
             Filename = '_'.join([Filename, AOI_name])
-            Save_Excel_Image(masked_image_set, total_FIDs, '.'.join([Filename, 'xlsx']))
-            Image_Stat = RasterStats(masked_image_set, total_FIDs)
+            Save_Excel_Image(masked_image_set, '.'.join([Filename, 'xlsx']))
+            Image_Stat = RasterStats(masked_image_set)
             Stat_sheet[Image_Name] = Image_Stat
     
     # Close shapefile
