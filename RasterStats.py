@@ -19,6 +19,7 @@ import numpy as np
 from osgeo import ogr, osr, gdal
 import pandas as pd
 
+
 AOI_filetype = [('Shapefile', ['*.shp']), ('Geopackage', ['*.gpkg']), ('GeoJSON', ['*.geojson', '*.json'])]
 Raster_filetype = '.tif'
 Out_filetypes=[('Microsoft Excel',['*.xls','*.xlsx'])]
@@ -312,7 +313,7 @@ def RasterStats(Image_set):
     return stat_sheet
 
 def Save_Excel_Image(features, OutFile):
-    OutputFile = pd.ExcelWriter(OutFile)
+    OutputFile = pd.ExcelWriter(OutFile, engine='xlsxwriter')
     for FID in features.keys():
         Masked_image = features[FID]
         Masked_image_1d = list()
@@ -326,7 +327,7 @@ def Save_Excel_Image(features, OutFile):
     OutputFile.close()
 
 def Save_Excel_Stats(Stat_sheet, total_FIDs, OutFile):
-    OutputFile = pd.ExcelWriter(OutFile)
+    OutputFile = pd.ExcelWriter(OutFile, engine='xlsxwriter')
     files = sorted(list(Stat_sheet.keys()))
     for FID in total_FIDs:
         indice = list()
