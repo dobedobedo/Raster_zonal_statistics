@@ -313,35 +313,33 @@ def RasterStats(Image_set):
     return stat_sheet
 
 def Save_Excel_Image(features, OutFile):
-    OutputFile = pd.ExcelWriter(OutFile, engine='xlsxwriter')
-    for FID in features.keys():
-        Masked_image = features[FID]
-        Masked_image_1d = list()
-        headers = list()
-        for _idx, band in enumerate(Masked_image):
-            Masked_image_1d.append(band[~band.mask].reshape(-1))
-            headers.append('band{}'.format(_idx+1))
-        Array = pd.DataFrame(Masked_image_1d).T
-        Array.to_excel(OutputFile, sheet_name=str(FID), header=headers, index=False)
-    OutputFile.save()
-    OutputFile.close()
+    with pd.ExcelWriter(OutFile, engine='xlsxwriter') as OutputFile:
+        for FID in features.keys():
+            Masked_image = features[FID]
+            Masked_image_1d = list()
+            headers = list()
+            for _idx, band in enumerate(Masked_image):
+                Masked_image_1d.append(band[~band.mask].reshape(-1))
+                headers.append('band{}'.format(_idx+1))
+            Array = pd.DataFrame(Masked_image_1d).T
+            Array.to_excel(OutputFile, sheet_name=str(FID), header=headers, index=False)
+        OutputFile.save()
 
 def Save_Excel_Stats(Stat_sheet, total_FIDs, OutFile):
-    OutputFile = pd.ExcelWriter(OutFile, engine='xlsxwriter')
-    files = sorted(list(Stat_sheet.keys()))
-    for FID in total_FIDs:
-        indice = list()
-        templist = list()
-        for file in files:
-            try:
-                templist.append(Stat_sheet[file].loc[FID])
-                indice.append(file)
-            except KeyError:
-                continue
-        temppd = pd.DataFrame(templist, index=indice)
-        temppd.to_excel(OutputFile, sheet_name=str(FID))
-    OutputFile.save()
-    OutputFile.close()
+    with pd.ExcelWriter(OutFile, engine='xlsxwriter') as OutputFile:
+        files = sorted(list(Stat_sheet.keys()))
+        for FID in total_FIDs:
+            indice = list()
+            templist = list()
+            for file in files:
+                try:
+                    templist.append(Stat_sheet[file].loc[FID])
+                    indice.append(file)
+                except KeyError:
+                    continue
+            temppd = pd.DataFrame(templist, index=indice)
+            temppd.to_excel(OutputFile, sheet_name=str(FID))
+        OutputFile.save()
 
 def UserInputBox(_property, text, allow_none=True, isnum=False):
     class popupWindow(tk.Tk):
