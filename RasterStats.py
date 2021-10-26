@@ -146,7 +146,7 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
         ycount = int((ymax - ymin)/pixelWidth)+1
         
     # Skip the feature if the extent is outside the image extent
-        if xoff < 0 or yoff <0:
+        if xoff < 0 or yoff <0 or xoff > InputFile.RasterXSize or yoff > InputFile.RasterYSize:
             continue
         
     # Specify offset and rows and columns of udm to read if there is any
@@ -268,6 +268,11 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
                         zonal_data = image_ndv
                     else:
                         raise AttributeError
+                        
+                # Skip if the clip raster doesn't fill the whole feature extent
+                elif zonal_data[~zonal_data.mask].shape[0] != datamask[np.where(datamask==1)].size:
+                    raise AttributeError
+                    
     # Mask zone of raster
                 zoneraster.append(zonal_data)
             Image_set[FID] = zoneraster
