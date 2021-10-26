@@ -146,7 +146,7 @@ def Create_Masked_Image(lyr, total_FIDs, Image, *udm):
         ycount = int((ymax - ymin)/pixelWidth)+1
         
     # Skip the feature if the extent is outside the image extent
-        if xoff < 0 or yoff <0 or xoff > InputFile.RasterXSize or yoff > InputFile.RasterYSize:
+        if xoff < 0 or yoff <0 or (xoff + xcount) > InputFile.RasterXSize or (yoff + ycount) > InputFile.RasterYSize:
             continue
         
     # Specify offset and rows and columns of udm to read if there is any
@@ -328,7 +328,6 @@ def Save_Excel_Image(features, OutFile):
                 headers.append('band{}'.format(_idx+1))
             Array = pd.DataFrame(Masked_image_1d).T
             Array.to_excel(OutputFile, sheet_name=str(FID), header=headers, index=False)
-        OutputFile.save()
 
 def Save_Excel_Stats(Stat_sheet, total_FIDs, OutFile):
     with pd.ExcelWriter(OutFile, engine='xlsxwriter') as OutputFile:
@@ -344,7 +343,6 @@ def Save_Excel_Stats(Stat_sheet, total_FIDs, OutFile):
                     continue
             temppd = pd.DataFrame(templist, index=indice)
             temppd.to_excel(OutputFile, sheet_name=str(FID))
-        OutputFile.save()
 
 def UserInputBox(_property, text, allow_none=True, isnum=False):
     class popupWindow(tk.Tk):
