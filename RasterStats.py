@@ -647,7 +647,7 @@ if __name__ == '__main__':
             if len(udm_index) > 1:
                 best_matches = list()
                 for _index in udm_index:
-                    udm_Name = os.path.split(udm[_index])[1]
+                    udm_Name = os.path.split(udms[_index])[1]
                     udm_Name, udm_Ext = os.path.splitext(udm_Name)
                     best_matches.append(Matches[_index]/len(udm_Name))
                 best_match = best_matches.index(max(best_matches))
